@@ -2,7 +2,9 @@ import sys
 
 from matrix import *
 from math import *
-from GMR import *
+from time import sleep
+from dsFunctions import *
+from cFunctions import *
 
 REALMIN = sys.float_info.min
 
@@ -28,12 +30,12 @@ def performASVMSimulation(speech, motion, names, dataPath, n=10, minI=None, maxI
     """
     for i in range(n):
         speech.say("Going to initial position")
-        x = setRandomPosition(motion, names, minI, maxI)
+        x = getRandomPosition(motion, names, minI, maxI)
         goToAngles(motion, names, x)
-        time.sleep(2.0)
+        sleep(2.0)
         angles = readAngles(motion, names)
         speech.say("Starting A.S.V.M")
-        time.sleep(1.0)
+        sleep(1.0)
         gK = runASVMUntilEq(motion, names, dataPath, 0.25, 0.02)
         speech.say("Equilibrium reached at attractor: " + str(gK))
 
@@ -50,7 +52,7 @@ def runASVMUntilEq(motion, names, dataPath, dt=0.1, waitTime=0.01):
             names: list of strings with the names of the joints involved in 
                    the motion
          dataPath: path to the ASVM parameter data (a string)
-               dt: time interval used to compute dx = v·dt. Default: 0.1
+               dt: time interval used to compute dx = v dt. Default: 0.1
          waitTime: optionally, the sleep time for each iteration (i.e. the 
                    time the system is waiting between iterations). The 
                    waitTime should be experimentally adjusted to obtain a 
@@ -72,7 +74,7 @@ def runASVMUntilEq(motion, names, dataPath, dt=0.1, waitTime=0.01):
         gK, eq = runASVMStep(motion, names, a, b, g, bias, xa, xb, vb, target,
                              Mu, Sigma, SigmaInv, SigmaDet, Priors, dt)
         equilibrium = eq
-        time.sleep(waitTime)
+        sleep(waitTime)
 
     return gK
 
@@ -92,7 +94,7 @@ def runASVMStep(motion, names, a, b, g, bias, xa, xb, vb, target, Mu, Sigma, Sig
            Mu, Sigma, SigmaInv, SigmaDet, Priors: rest of DS parameters as 
                                 lists of the original objects, characterising
                                 the DSs of each class
-               dt: time interval used to compute dx = v·dt. Default: 0.1
+               dt: time interval used to compute dx = v dt. Default: 0.1
               tol: multiplicative factor to amplify/decrease the tolerances of 
                    the joints. Default: 1
         Outputs:
@@ -232,7 +234,7 @@ def getH(x, a, b, g, bias, xa, xb, vb, target):
     
 
 
-def gradH(x, a, b, g, bias, xa, xb, vb, target, step=1E-5, steps=None, h=None):
+def gradH(x, a, b, g, bias, xa, xb, vb, target, steps=None, h=None):
     """ Returns the numerically computed gradient of the modulation function h
         given a vector point x (as a list), a step vector defining the step
         taken in every direction (as lists)
@@ -253,6 +255,7 @@ def gradH(x, a, b, g, bias, xa, xb, vb, target, step=1E-5, steps=None, h=None):
     """
 
     dim = len(x)
+    step = 1E-5
 
     if h is None:
         h = getH(x, a, b, g, bias, xa, xb, vb, target)
@@ -265,9 +268,9 @@ def gradH(x, a, b, g, bias, xa, xb, vb, target, step=1E-5, steps=None, h=None):
     xf = [x for i in range(dim)]
 
     for i in range(dim):
-      xf[i][i] +=  steps[i]    
+        xf[i][i] +=  steps[i]    
 
-    gradH = [(getH(xf[i], a, b, g, bias, xa, xb, vd, target) - h) / steps[i] 
+    gradH = [(getH(xf[i], a, b, g, bias, xa, xb, vb, target) - h) / steps[i] 
                                                           for i in range(dim)]
 
     return gradH
