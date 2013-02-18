@@ -72,7 +72,7 @@ def goToAngles(motion, names, positions, fractionMaxSpeed = None):
 
 
 
-def setRandomPosition(motion, names, minI=None, maxI=None):
+def getRandomPosition(motion, names, minI=None, maxI=None):
     """ Choose a random position for a set of joints.
         Inputs: 
             motion: motion proxy already opened in Nao

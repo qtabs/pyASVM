@@ -29,7 +29,6 @@ def loadDSParameters(path=''):
              Priors: list of numbers
              xTrans: list of matrices (Matrix objects)
     """
-
     if path[-1] != '/' and path != '':
         print "LOADING... PATH MUST INCLUDE A TRAILING SLASH!!"
 

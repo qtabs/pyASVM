@@ -69,9 +69,8 @@ def runASVMUntilEq(motion, names, dataPath, dt=0.1, waitTime=0.01):
     equilibrium = False
 
     while not equilibrium:
-        gK, eq = runGreetingStepASVM(motion, names, a, b, g, bias, xa, xb, vb,  
-                                     target, Mu, Sigma, SigmaInv, SigmaDet, 
-                                     Priors, dt)
+        gK, eq = runASVMStep(motion, names, a, b, g, bias, xa, xb, vb, target,
+                             Mu, Sigma, SigmaInv, SigmaDet, Priors, dt)
         equilibrium = eq
         time.sleep(waitTime)
 
@@ -79,7 +78,7 @@ def runASVMUntilEq(motion, names, dataPath, dt=0.1, waitTime=0.01):
 
 
 
-def runGreetingStepASVM(motion, names, a, b, g, bias, xa, xb, vb, target, Mu, Sigma, SigmaInv, SigmaDet, Priors, dt=0.07, tol=1):
+def runASVMStep(motion, names, a, b, g, bias, xa, xb, vb, target, Mu, Sigma, SigmaInv, SigmaDet, Priors, dt=0.07, tol=1):
     """ Runs an ASVM step given its parameters and a motion proxy.
         Inputs:
            motion: motion proxy already opened in Nao

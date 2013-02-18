@@ -1,10 +1,11 @@
 from sys import float_info
-from math import e, pi
+from math import e, pi, sqrt
 from random import random
 from time import sleep
 from matrix import *
 from loadData import *
-from naoFunctions import *
+#from naoFunctions import *
+from cFunctions import *
 
 REALMIN = float_info.min
 
@@ -35,16 +36,13 @@ def performDSSimulation(speech, motion, names, dataPath, n, maxLimits=None, minL
 
     for i in range(n):
         speech.say("Going to initial position")
-        if bounded:
-            x = setRandomPositionWithinLimits(maxLimits, minLimits)
-        else:
-            x = setRandomPosition(motion, names)
+        x = getRandomPosition(motion, names, minLimits, maxLimits)
         goToAngles(motion, names, x)
         sleep(4.0)
-        angles = readAngles(motion)
+        angles = readAngles(motion, names)
         speech.say("Starting Dynamical System")
         sleep(2.0)
-        runDynamicalSystem(motion, names, angles, dataPath[0])
+        runDynamicalSystem(motion, names, dataPath)
         speech.say("equilibrium reached")
 
     speech.say("Simulation finished")
@@ -72,13 +70,14 @@ def runDynamicalSystem(motion, names, dataPath, dt=0.12, waitTime=0.01):
     
     equilibrium = False
     while not equilibrium:
-        runDynamcalSystemStep(motion, names, Mu, Sigma, SigmaInv, SigmaDet, 
-                              Priors, xTrans, dt)
+        equilibrium = runDynamcalSystemStep(motion, names, Mu, Sigma, 
+                                            SigmaInv, SigmaDet, 
+                                            Priors, xTrans, dt)
         sleep(waitTime)
 
 
 
-def equilibriumReached(names, speeds):
+def equilibriumReached(names, speeds, tol=1):
     """ Checks if the motion is in an equilibrium position. For that, the
         function checks if all speeds are similar to zero using the tolerances
         provided in the config file
@@ -91,7 +90,7 @@ def equilibriumReached(names, speeds):
     localEq = True
     
     for i in range(len(names)):
-        if speeds[i] > TOL[names[i]]: 
+        if speeds[i] > (tol * TOL[names[i]]): 
             localEq = False
     
     return localEq
@@ -106,7 +105,7 @@ def runDynamcalSystemStep(motion, names, Mu, Sigma, SigmaInv, SigmaDet, Priors, 
                         in the motion. Ordering of this list and the DS vars
                         should, obviously, match.
           Priors, Mu, Sigma, SigmaInv, SigmaDet, xTrans: parameters of the DS                 
-                    dt: time interval of the step, used to compute dx = v·dt
+                    dt: time interval of the step, used to compute dx = v dt
                         Default: 0.1
                    tol: equilibirum tolerance factor, used to amplify or 
                         decrease the predefined tolerances of the joints.
@@ -172,8 +171,9 @@ def GMRpy(Priors, Mu, Sigma, x, SigmaInv, SigmaDet, xTrans=None):
           A[j] * (x - Mu[j].getSlice(range(d), [0]))) 
                                                             for j in range(K)]
 
-    
-    y = sum([sprod(h[j], b[j]) for j in range(K)])
+    y = Matrix(d,1)
+    for j in range(K):
+        y += sprod(h[j], b[j])
 
     return y.getTranspose().rows[0]
 
@@ -191,15 +191,15 @@ def gaussPDF(x, Mu, Sigma, SigmaInv, SigmaDet):
         Output:
                   p: a single scalar representing the Probability of the point
     """
-
+    gamma = 0.6              # RBF factor
     d = x.getRank()[0]       # Dimension
 
     # Argument of the exponential
-    arg = ((x - Mu).getTranspose() * SigmaInv) * (x - Mu)
+    arg = (((x - Mu).getTranspose() * SigmaInv) * (x - Mu))[0][0]
 
     # Coefficient of the probability
-    coef = 1 / (math.sqrt((2 * pi) ** d * (abs(SigmaDet) + REALMIN)))
+    coef = 1 / (sqrt((2 * pi) ** d * (abs(SigmaDet) + REALMIN)))
 
-    p = coef * e ** (- gamma * arg) 
+    p = coef * (e ** (- gamma * arg)) 
 
     return p

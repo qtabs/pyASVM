@@ -153,9 +153,9 @@ class SpeechProxySimulator():
         """ Says a given text. The text is simply printed in the console if 
             speaker is false. The input text should be a string
         """
-        if speaker:
-            print text
+        if self.speaker:
+            print "Speech:", text
         else:
-            print text
+            print "Speech:", text
 
 
