@@ -1,5 +1,4 @@
-from cFunctions import *
-from asvmFunctions import *
+from pyASVM import *
 
 motion = openMotionProxy()
 speech = openSpeechProxy()
@@ -8,9 +7,9 @@ DSpaths = ["./demoData/DS1/", "./demoData/DS2/"]
 ASVMpaths = ["./demoData/ASVM1/", "./demoData/ASVM2/"]
 names = ["A", "B", "D", "E", "F"]
 
-# targets = setRandomPosition(motion, names)
-# goToAngles(motion, names, targets)
+# DS = DynamicalSystem(DSpaths[0])
+ASVM = MultiClassASVM(ASVMpaths)
 
-performDSSimulation(speech, motion, names, DSpaths[0], 1)
-performASVMSimulation(speech, motion, names, ASVMpaths, 1)
+# DS.simulate(speech, motion, names, 1)
+ASVM.simulate(speech, motion, names, 1)
 
