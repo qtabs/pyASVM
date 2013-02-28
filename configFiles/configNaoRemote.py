@@ -16,17 +16,9 @@
                  described in NAMES can be specified
 """ 
 
-NAO = "naomi.local"
-#NAO = "localhost"
 
-PORT = 9559 
 
 NAMES = ["HeadPitch", "RShoulderPitch", "RElbowRoll", "RElbowYaw"]
 
 DATAPATH = "../Data"
 
-TOL = {"HeadPitch": 0.002,
-       "RElbowRoll": 0.007 ,
-       "RHand": 0.0003, 
-       "RShoulderPitch": 0.012,
-       "RElbowYaw": 0.007}

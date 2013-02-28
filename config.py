@@ -10,8 +10,18 @@
                  the joints as a dictionary. More joints that those
                  described in NAMES can be specified
 """ 
-TOL = {"A": 0.05,
-       "B": 0.05,
-       "F": 0.05, 
-       "D": 0.05,
-       "E": 0.05}
+CONSOLE_TOLERANCES = {"A": 0.05,
+                      "B": 0.05,
+                      "F": 0.05, 
+                      "D": 0.05,
+                      "E": 0.05}
+
+NAO_TOLERANCES = {"HeadPitch": 0.002,
+                  "RElbowRoll": 0.007 ,
+                  "RHand": 0.0003, 
+                  "RShoulderPitch": 0.012,
+                  "RElbowYaw": 0.007}
+
+NAO_PORT = 9559 
+NAO_HOST = "naomi.local"
+#NAO_HOST = "localhost"

@@ -1,7 +1,9 @@
 from math import e, pi, sqrt, exp
 from time import sleep
-from matrix import *
 from sys import float_info
+from glob import glob
+
+from matrix import *
 from cFunctions import *
 
 REALMIN = float_info.min
@@ -17,16 +19,12 @@ class DynamicalSystem():
         self.loadParameters()
 
 
-    def simulate(self, speech, motion, names, n, maxLimits=None, minLimits=None):
+    def simulate(self, platform, n, maxLimits=None, minLimits=None):
         """ Performs a simulation of a given Dynamical System. The robot goes 
             to a random position and then execute the Dynamical System until 
             equilibrium is reached. The procedure is repeated n times.
             Inputs: 
-                    speech: speech proxy already opened in Nao
-                    motion: motion proxy already opened in Nao
-                     names: list of strings with the names of the joints involved 
-                            in the motion. Ordering of this list and the DS vars
-                            should, obviously, match.
+                  platform: platform object from pyASVMplatforms library 
                          n: Number of tries
              max/minLimits: optionally, the upper/bottom limits of the positions
                             can be set to test DS defined only in a bounded region
@@ -41,24 +39,22 @@ class DynamicalSystem():
             bounded = True
 
         for i in range(n):
-            speech.say("Going to initial position")
-            x = getRandomPosition(motion, names, minLimits, maxLimits)
-            goToAngles(motion, names, x)
+            platform.say("Going to initial position")
+            x = platform.getRandomPosition(minLimits, maxLimits)
+            platform.goToAngles(x)
             sleep(4.0)
-            angles = readAngles(motion, names)
-            speech.say("Starting Dynamical System")
+            platform.say("Starting Dynamical System")
             sleep(2.0)
-            self.runUntilEq(motion, names)
-            speech.say("equilibrium reached")
+            self.runUntilEq(platform)
+            platform.say("equilibrium reached")
 
-        speech.say("Simulation finished")
+        platform.say("Simulation finished")
 
 
-    def runUntilEq(self, motion, names, dt=0.12, waitTime=0.01):
+    def runUntilEq(self, platform, dt=0.12, waitTime=0.01):
         """ Runs a Dynamical System over Nao until equilibrium is reached.
             Inputs:
-                  motion: motion proxy already opened in Nao
-                   names: ordered list of strings with the considered joint names
+                platform: platform object from pyASVMplatforms library 
                       dt: optionally, the considered time increment for each step
                           (default: 0.12)
                 waitTime: optionally, the sleep time for each iteration (i.e. the 
@@ -71,50 +67,28 @@ class DynamicalSystem():
         """        
         equilibrium = False
         while not equilibrium:
-            equilibrium = self.runStep(motion, names, dt)
+            equilibrium = self.runStep(platform, dt)
             sleep(waitTime)
 
 
-    def runStep(self, motion, names, dt=0.1, tol=1):
+    def runStep(self, platform, dt=0.1, tol=1):
         """ Runs a step in the Dynamical System
             Inputs: 
-                    motion: motion proxy already opened in Nao
-                     names: list of strings with the names of the joints involved 
-                            in the motion. Ordering of this list and the DS vars
-                            should, obviously, match.
+                  platform: platform object from pyASVMplatforms library 
                         dt: time interval of the step, used to compute dx = v dt
                             Default: 0.1
                        tol: equilibirum tolerance factor, used to amplify or 
                             decrease the predefined tolerances of the joints.
                             Default: 1
         """
-        angles = readAngles(motion, names)
-        x = getX(angles, names)
+        platform.updateAngles()
+        x = platform.x
         velocity = self.GMR(x)
         dx = [dt*v for v in velocity]
-        moveAngles(motion, names, dx)
-        equilibrium = self.equilibriumReached(names, dx, tol)
+        platform.moveAngles(dx)
+        equilibrium = platform.equilibriumReached(dx, tol)
 
         return equilibrium
-
-
-    def equilibriumReached(self, names, speeds, tol=1):
-        """ Checks if the motion is in an equilibrium position. For that, the
-            function checks if all speeds are similar to zero using the tolerances
-            provided in the config file
-            Inputs:
-                names: list of strings with the joints to be considered in the 
-                       motion
-                speeds: list of speed values for each of the joints
-        """
-
-        localEq = True
-        
-        for i in range(len(names)):
-            if speeds[i] > (tol * TOL[names[i]]): 
-                localEq = False
-        
-        return localEq
 
 
     def GMR(self, x):
@@ -189,38 +163,26 @@ class DynamicalSystem():
                  Priors: list of numbers
                  xTrans: list of matrices (Matrix objects)
         """
-        self.Mu = self.loadMatrices(self.datapath + 'Mu*')
-        self.Sigma = self.loadMatrices(self.datapath + 'SigmaMat*')
-        self.SigmaInv = self.loadMatrices(self.datapath + 'SigmaInv*')
+        self.Mu = loadMatrices(self.datapath + 'Mu*')
+        self.Sigma = loadMatrices(self.datapath + 'SigmaMat*')
+        self.SigmaInv = loadMatrices(self.datapath + 'SigmaInv*')
 
-        xTrans = self.loadMatrices(self.datapath + 'xTrans')
+        xTrans = loadMatrices(self.datapath + 'xTrans')
         if xTrans == []:
             self.xTrans = None
         else:
-            self.xTrans = self.loadMatrices(self.datapath + 'xTrans')[0]
+            self.xTrans = loadMatrices(self.datapath + 'xTrans')[0]
 
-        SigmaDet = self.loadMatrices(self.datapath + 'SigmaDet*')
+        SigmaDet = loadMatrices(self.datapath + 'SigmaDet*')
         self.SigmaDet = SigmaDet[0].getTranspose().rows[0]
 
-        Priors = self.loadMatrices(self.datapath + 'Priors')
+        Priors = loadMatrices(self.datapath + 'Priors')
         if Priors[0].n == 1:
             self.Priors = Priors[0].getTranspose().rows[0]
         else:
             self.Priors = Priors[0].rows[0]
 
 
-    def loadMatrices(self, globpattern):
-        """ Loads from files a list of all matrices in files given a name with a
-            wildcard. If a single name is provided, the output is still a list
-            with a single element
-        """
-
-        matrices = []
-
-        for fname in sorted(glob(globpattern)):
-            matrices.append(Matrix.readGrid(fname))
-
-        return matrices
 
 
 
@@ -235,6 +197,8 @@ class MultiClassDynamicalSystem():
         self.DS = [DynamicalSystem(self.datapaths[i]) for i in self.cardinality]
 
 
+
+# A-SVM Classes
 
 class SingleClassASVM():
 
@@ -443,20 +407,6 @@ class SingleClassASVM():
         self.bias = bias[0].getTranspose().rows[0][0]
 
 
-    def loadMatrices(self, globpattern):
-        """ Loads from files a list of all matrices in files given a name with a
-            wildcard. If a single name is provided, the output is still a list
-            with a single element
-        """
-
-        matrices = []
-
-        for fname in sorted(glob(globpattern)):
-            matrices.append(Matrix.readGrid(fname))
-
-        return matrices
-
-
 
 class MultiClassASVM():
 
@@ -469,17 +419,13 @@ class MultiClassASVM():
         self.ASVM = [SingleClassASVM(self.datapaths[i]) for i in range(self.cardinality)]
 
 
-    def simulate(self, speech, motion, names, n=10, minI=None, maxI=None):
+    def simulate(self, platform, n=10, minI=None, maxI=None):
         """ Performs a simulation of a given A-SVM system. The robot goes first
             to a random position and then execute the ASVM until equilibrium
             is reached. The procedure is repeated n times to test different 
             initial conditions.
             Inputs: 
-                    speech: speech proxy already opened in Nao
-                    motion: motion proxy already opened in Nao
-                     names: list of strings with the names of the joints involved 
-                            in the motion. Ordering of this list and the DS vars
-                            should, obviously, match.
+                  platform: platform object from pyASVMplatforms library 
                          n: Number of tries. Default: 10
                   max/minI: optionally, the upper/bottom limits of the positions
                             can be set to test DS defined only in a bounded region
@@ -488,27 +434,22 @@ class MultiClassASVM():
                             of Nao for both, max and min bounds. 
         """
         for i in range(n):
-            speech.say("Going to initial position")
-            x = getRandomPosition(motion, names, minI, maxI)
-            goToAngles(motion, names, x)
+            platform.say("Going to initial position")
+            x = platform.getRandomPosition(minI, maxI)
+            platform.goToAngles(x)
             sleep(2.0)
-            angles = readAngles(motion, names)
-            speech.say("Starting A.S.V.M")
+            platform.say("Starting A.S.V.M")
             sleep(1.0)
-            gK = self.runUntilEq(motion, names, 0.25, 0.02)
-            speech.say("Equilibrium reached at attractor: " + str(gK))
+            gK = self.runUntilEq(platform, 0.25, 0.02)
+            platform.say("Equilibrium reached at attractor: " + str(gK))
 
-        speech.say("Simulation finished")  
+        platform.say("Simulation finished")  
         
-        return None
 
-
-    def runUntilEq(self, motion, names, dt=0.1, waitTime=0.01):
+    def runUntilEq(self, platform, dt=0.1, waitTime=0.01):
         """ Runs a SVM motion until the equilibrium has been reached.
             Inputs:
-               motion: motion proxy already opened in Nao
-                names: list of strings with the names of the joints involved in 
-                       the motion
+             platform: platform object from pyASVMplatforms library 
                    dt: time interval used to compute dx = v dt. Default: 0.1
              waitTime: optionally, the sleep time for each iteration (i.e. the 
                        time the system is waiting between iterations). The 
@@ -520,37 +461,33 @@ class MultiClassASVM():
             Outputs:
                    gK: the index of the reached attractor
         """
-        angles = readAngles(motion, names)
-
         equilibrium = False
         while not equilibrium:
-            gK, equilibrium = self.runStep(motion, names, dt)
+            gK, equilibrium = self.runStep(platform, dt)
             sleep(waitTime)
 
         return gK
 
 
-    def runStep(self, motion, names, dt=0.07, tol=1):
+    def runStep(self, platform, dt=0.07, tol=1):
         """ Runs an ASVM step given its parameters and a motion proxy.
             Inputs:
-               motion: motion proxy already opened in Nao
-                names: list of strings with the names of the joints involved 
-                       in the motion.
+            platform: platform object from pyASVMplatforms library 
                   dt: time interval used to compute dx = v dt. Default: 0.1
-                  tol: multiplicative factor to amplify/decrease the tolerances of 
+                 tol: multiplicative factor to amplify/decrease the tolerances of 
                        the joints. Default: 1
             Outputs:
                    gK: the index of the used attractor in the step
           equilibrium: boolean variable indicating if the step finished in an 
                        equilibrium situation (i.e. velocities under the threshold)
         """
-        angles = readAngles(motion, names)
-        x = getX(angles, names)
+        platform.updateAngles()
+        x = platform.x
         gk = self.getLargerHIndex(x)
         velocity = self.ASVM[gk].modVelocity(x)
         dx = [dt*v for v in velocity]
-        moveAngles(motion, names, dx)
-        equilibrium = self.ASVM[gk].DS.equilibriumReached(names, dx, tol)
+        platform.moveAngles(dx)
+        equilibrium = platform.equilibriumReached(dx, tol)
 
         return [gk, equilibrium]
 
@@ -565,3 +502,19 @@ class MultiClassASVM():
 
         return h.index(max(h))  
 
+
+
+# Extra functions
+
+def loadMatrices(globpattern):
+        """ Loads from files a list of all matrices in files given a name with a
+            wildcard. If a single name is provided, the output is still a list
+            with a single element
+        """
+
+        matrices = []
+
+        for fname in sorted(glob(globpattern)):
+            matrices.append(Matrix.readGrid(fname))
+
+        return matrices
