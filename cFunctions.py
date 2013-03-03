@@ -1,5 +1,3 @@
-import sys
-
 from random import random
 import cProxies as pseudoProxies
 #from naoqi import ALProxy as naoProxies
@@ -143,7 +141,7 @@ class ConsolePlatform():
 
 
 
-class NaoPlatform:
+class NaoPlatform():
 
     def __init__(self):
         self.TOL = NAO_TOLERANCES
